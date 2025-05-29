@@ -5,17 +5,19 @@ import ClimateSidebar from '@/components/ClimateSidebar';
 
 const Index = () => {
   const [mapData, setMapData] = useState(null);
+  const [selectedBoundary, setSelectedBoundary] = useState('district');
+  const [selectedIndicator, setSelectedIndicator] = useState('climate_vulnerability');
 
   const handleBoundaryChange = (boundary: string) => {
     console.log('Boundary changed to:', boundary);
-    // Here you would typically make an API call to your backend
-    // to fetch data for the new boundary type
+    setSelectedBoundary(boundary);
   };
 
   const handleFilterChange = (filter: any) => {
     console.log('Filter changed:', filter);
-    // Here you would typically make an API call to your backend
-    // to fetch filtered data
+    if (filter.indicator) {
+      setSelectedIndicator(filter.indicator);
+    }
   };
 
   const handleDataLoad = (data: any) => {
@@ -30,7 +32,11 @@ const Index = () => {
         onFilterChange={handleFilterChange}
       />
       <div className="flex-1 relative">
-        <ClimateMap onDataLoad={handleDataLoad} />
+        <ClimateMap 
+          onDataLoad={handleDataLoad}
+          boundary={selectedBoundary}
+          indicator={selectedIndicator}
+        />
       </div>
     </div>
   );

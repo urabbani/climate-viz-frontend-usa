@@ -1,11 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { MapPin, Layers, Filter, BarChart3, Globe } from 'lucide-react';
+import { MapPin, Layers, Filter, BarChart3, Globe, RefreshCw } from 'lucide-react';
+import { ccviApi, BoundaryOption, IndicatorOption } from '@/services/ccviApi';
 
 interface ClimateSidebarProps {
   onBoundaryChange: (boundary: string) => void;
@@ -13,8 +13,36 @@ interface ClimateSidebarProps {
 }
 
 const ClimateSidebar = ({ onBoundaryChange, onFilterChange }: ClimateSidebarProps) => {
-  const [selectedBoundary, setSelectedBoundary] = useState('Tract');
-  const [selectedIndicator, setSelectedIndicator] = useState('climate_change');
+  const [selectedBoundary, setSelectedBoundary] = useState('district');
+  const [selectedIndicator, setSelectedIndicator] = useState('climate_vulnerability');
+  const [boundaries, setBoundaries] = useState<BoundaryOption[]>([]);
+  const [indicators, setIndicators] = useState<IndicatorOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load available options from API
+  useEffect(() => {
+    const loadOptions = async () => {
+      setIsLoading(true);
+      try {
+        const [boundaryOptions, indicatorOptions] = await Promise.all([
+          ccviApi.getBoundaryTypes(),
+          ccviApi.getIndicators()
+        ]);
+        
+        setBoundaries(boundaryOptions);
+        setIndicators(indicatorOptions);
+        
+        console.log('Loaded boundary options:', boundaryOptions);
+        console.log('Loaded indicator options:', indicatorOptions);
+      } catch (error) {
+        console.error('Error loading options:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadOptions();
+  }, []);
 
   const handleBoundaryChange = (value: string) => {
     setSelectedBoundary(value);
@@ -31,7 +59,7 @@ const ClimateSidebar = ({ onBoundaryChange, onFilterChange }: ClimateSidebarProp
       <div className="p-6">
         <div className="flex items-center space-x-2 mb-6">
           <Globe className="h-6 w-6 text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-800">Climate Vulnerability Index</h1>
+          <h1 className="text-xl font-bold text-gray-800">IWMI Climate Vulnerability</h1>
         </div>
 
         {/* Map Boundaries Section */}
@@ -40,21 +68,33 @@ const ClimateSidebar = ({ onBoundaryChange, onFilterChange }: ClimateSidebarProp
             <CardTitle className="text-sm flex items-center space-x-2">
               <Layers className="h-4 w-4" />
               <span>Map Boundaries</span>
+              {isLoading && <RefreshCw className="h-3 w-3 animate-spin" />}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <label className="text-xs text-gray-600 mb-1 block">Geographic Level</label>
-              <Select value={selectedBoundary} onValueChange={handleBoundaryChange}>
+              <label className="text-xs text-gray-600 mb-1 block">Administrative Level</label>
+              <Select 
+                value={selectedBoundary} 
+                onValueChange={handleBoundaryChange}
+                disabled={isLoading}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select boundary type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Tract">Census Tract</SelectItem>
-                  <SelectItem value="County">County</SelectItem>
-                  <SelectItem value="State">State</SelectItem>
+                  {boundaries.map((boundary) => (
+                    <SelectItem key={boundary.id} value={boundary.id}>
+                      {boundary.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {boundaries.find(b => b.id === selectedBoundary)?.description && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {boundaries.find(b => b.id === selectedBoundary)?.description}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -70,40 +110,54 @@ const ClimateSidebar = ({ onBoundaryChange, onFilterChange }: ClimateSidebarProp
           <CardContent className="space-y-3">
             <div>
               <label className="text-xs text-gray-600 mb-1 block">Primary Indicator</label>
-              <Select value={selectedIndicator} onValueChange={handleIndicatorChange}>
+              <Select 
+                value={selectedIndicator} 
+                onValueChange={handleIndicatorChange}
+                disabled={isLoading}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select indicator" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="climate_change">Climate Change Risk</SelectItem>
-                  <SelectItem value="heat_vulnerability">Heat Vulnerability</SelectItem>
-                  <SelectItem value="flood_risk">Flood Risk</SelectItem>
-                  <SelectItem value="drought_risk">Drought Risk</SelectItem>
-                  <SelectItem value="wildfire_risk">Wildfire Risk</SelectItem>
+                  {indicators.map((indicator) => (
+                    <SelectItem key={indicator.id} value={indicator.id}>
+                      {indicator.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {indicators.find(i => i.id === selectedIndicator)?.description && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {indicators.find(i => i.id === selectedIndicator)?.description}
+                </p>
+              )}
+              {indicators.find(i => i.id === selectedIndicator)?.unit && (
+                <p className="text-xs text-blue-600 mt-1">
+                  Unit: {indicators.find(i => i.id === selectedIndicator)?.unit}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Filters Section */}
+        {/* Active Filters Section */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center space-x-2">
               <Filter className="h-4 w-4" />
-              <span>Active Filters</span>
+              <span>Active Configuration</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <Badge variant="secondary" className="mr-2">
-                USA
+                Pakistan
               </Badge>
               <Badge variant="secondary" className="mr-2">
-                {selectedBoundary}
+                {boundaries.find(b => b.id === selectedBoundary)?.name || selectedBoundary}
               </Badge>
               <Badge variant="outline" className="mr-2">
-                {selectedIndicator.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                {indicators.find(i => i.id === selectedIndicator)?.name || selectedIndicator}
               </Badge>
             </div>
           </CardContent>
@@ -119,31 +173,31 @@ const ClimateSidebar = ({ onBoundaryChange, onFilterChange }: ClimateSidebarProp
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-green-500 rounded"></div>
-                  <span className="text-xs">Low (0-25%)</span>
+                  <span className="text-xs">Very Low (0-20%)</span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-lime-500 rounded"></div>
-                  <span className="text-xs">Low-Med (25-50%)</span>
+                  <span className="text-xs">Low (20-40%)</span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-yellow-500 rounded"></div>
-                  <span className="text-xs">Medium (50-75%)</span>
+                  <span className="text-xs">Medium (40-60%)</span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-orange-500 rounded"></div>
-                  <span className="text-xs">Med-High (75-90%)</span>
+                  <span className="text-xs">High (60-80%)</span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-red-500 rounded"></div>
-                  <span className="text-xs">High (90-100%)</span>
+                  <span className="text-xs">Very High (80-100%)</span>
                 </div>
               </div>
             </div>
@@ -160,14 +214,23 @@ const ClimateSidebar = ({ onBoundaryChange, onFilterChange }: ClimateSidebarProp
           </CardHeader>
           <CardContent>
             <div className="text-xs text-gray-600 space-y-1">
-              <p><strong>Geographic Context:</strong> United States</p>
-              <p><strong>Data Source:</strong> Climate Vulnerability Index</p>
-              <p><strong>Last Updated:</strong> 2024</p>
+              <p><strong>Geographic Context:</strong> Pakistan</p>
+              <p><strong>Data Source:</strong> IWMI Climate Change and Vulnerability Index</p>
+              <p><strong>API Endpoint:</strong> pakwmis.iwmi.org</p>
+              <p><strong>Last Updated:</strong> Real-time</p>
               <Separator className="my-2" />
               <p className="text-xs text-gray-500">
-                This map shows mock climate vulnerability data for demonstration purposes. 
-                Connect your backend API to display real vulnerability indices.
+                This map displays real-time climate vulnerability data from the 
+                International Water Management Institute (IWMI) for Pakistan regions.
               </p>
+              <a 
+                href="https://pakwmis.iwmi.org/iwmi-ccvi/backend/docs" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 underline text-xs block mt-2"
+              >
+                View API Documentation
+              </a>
             </div>
           </CardContent>
         </Card>
