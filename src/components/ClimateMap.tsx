@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -68,7 +67,9 @@ const ClimateMap = ({ onDataLoad }: { onDataLoad?: (data: any) => void }) => {
 
       // Add hover effects
       map.current?.on('mouseenter', 'climate-vulnerability', (e) => {
-        map.current?.getCanvas().style.cursor = 'pointer';
+        if (map.current) {
+          map.current.getCanvas().style.cursor = 'pointer';
+        }
         
         if (e.features?.[0]) {
           const feature = e.features[0];
@@ -92,7 +93,9 @@ const ClimateMap = ({ onDataLoad }: { onDataLoad?: (data: any) => void }) => {
       });
 
       map.current?.on('mouseleave', 'climate-vulnerability', () => {
-        map.current?.getCanvas().style.cursor = '';
+        if (map.current) {
+          map.current.getCanvas().style.cursor = '';
+        }
         
         if ((map.current as any)._currentPopup) {
           (map.current as any)._currentPopup.remove();
