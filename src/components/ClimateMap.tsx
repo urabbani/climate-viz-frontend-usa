@@ -1,120 +1,82 @@
-import React, { useEffect, useRef, useState } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+
+import React, { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const ClimateMap = ({ onDataLoad }: { onDataLoad?: (data: any) => void }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const [mapboxToken, setMapboxToken] = useState('');
-  const [showTokenInput, setShowTokenInput] = useState(true);
+  const map = useRef<L.Map | null>(null);
+  const dataLayer = useRef<L.GeoJSON | null>(null);
 
   const initializeMap = () => {
-    if (!mapContainer.current || !mapboxToken) return;
+    if (!mapContainer.current) return;
 
-    mapboxgl.accessToken = mapboxToken;
+    // Initialize Leaflet map
+    map.current = L.map(mapContainer.current).setView([37.0902, -95.7129], 4);
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map.current);
+
+    // Generate and add climate data
+    const climateData = generateMockClimateData();
     
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
-      center: [-95.7129, 37.0902], // Center of USA
-      zoom: 4,
-      pitch: 0,
-      bearing: 0
-    });
-
-    // Add navigation controls
-    map.current.addControl(
-      new mapboxgl.NavigationControl({
-        visualizePitch: false,
-      }),
-      'top-right'
-    );
-
-    // Add zoom and rotation controls
-    map.current.addControl(new mapboxgl.FullscreenControl(), 'top-right');
-
-    map.current.on('load', () => {
-      // Add mock climate vulnerability data layer
-      map.current?.addSource('climate-data', {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: generateMockClimateData()
-        }
-      });
-
-      map.current?.addLayer({
-        id: 'climate-vulnerability',
-        type: 'fill',
-        source: 'climate-data',
-        paint: {
-          'fill-color': [
-            'interpolate',
-            ['linear'],
-            ['get', 'vulnerability'],
-            0, '#22c55e',    // Low vulnerability - green
-            0.25, '#84cc16', // Low-medium - lime
-            0.5, '#eab308',  // Medium - yellow
-            0.75, '#f97316', // Medium-high - orange
-            1, '#ef4444'     // High vulnerability - red
-          ],
-          'fill-opacity': 0.7,
-          'fill-outline-color': '#ffffff'
-        }
-      });
-
-      // Add hover effects
-      map.current?.on('mouseenter', 'climate-vulnerability', (e) => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = 'pointer';
-        }
+    dataLayer.current = L.geoJSON(climateData, {
+      style: (feature) => {
+        const vulnerability = feature?.properties?.vulnerability || 0;
+        let color = '#22c55e'; // Low vulnerability - green
         
-        if (e.features?.[0]) {
-          const feature = e.features[0];
-          const popup = new mapboxgl.Popup({
-            closeButton: false,
-            closeOnClick: false
-          })
-            .setLngLat(e.lngLat)
-            .setHTML(`
-              <div class="p-2">
-                <h3 class="font-semibold">${feature.properties?.name || 'Unknown Area'}</h3>
-                <p>Vulnerability Score: ${(feature.properties?.vulnerability * 100).toFixed(1)}%</p>
-                <p>Population: ${feature.properties?.population?.toLocaleString() || 'N/A'}</p>
-              </div>
-            `)
-            .addTo(map.current!);
-          
-          // Store popup reference for cleanup
-          (map.current as any)._currentPopup = popup;
-        }
-      });
-
-      map.current?.on('mouseleave', 'climate-vulnerability', () => {
-        if (map.current) {
-          map.current.getCanvas().style.cursor = '';
-        }
+        if (vulnerability > 0.75) color = '#ef4444'; // High - red
+        else if (vulnerability > 0.5) color = '#f97316'; // Medium-high - orange
+        else if (vulnerability > 0.25) color = '#eab308'; // Medium - yellow
+        else if (vulnerability > 0) color = '#84cc16'; // Low-medium - lime
         
-        if ((map.current as any)._currentPopup) {
-          (map.current as any)._currentPopup.remove();
-          (map.current as any)._currentPopup = null;
-        }
-      });
-
-      // Notify parent component that data is loaded
-      if (onDataLoad) {
-        onDataLoad(generateMockClimateData());
+        return {
+          fillColor: color,
+          weight: 2,
+          opacity: 1,
+          color: 'white',
+          fillOpacity: 0.7
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        const props = feature.properties;
+        const popupContent = `
+          <div style="padding: 8px;">
+            <h3 style="margin: 0 0 8px 0; font-weight: bold;">${props?.name || 'Unknown Area'}</h3>
+            <p style="margin: 4px 0;">Vulnerability Score: ${((props?.vulnerability || 0) * 100).toFixed(1)}%</p>
+            <p style="margin: 4px 0;">Population: ${props?.population?.toLocaleString() || 'N/A'}</p>
+          </div>
+        `;
+        
+        layer.bindPopup(popupContent);
+        
+        layer.on({
+          mouseover: (e) => {
+            const layer = e.target;
+            layer.setStyle({
+              weight: 3,
+              color: '#666',
+              fillOpacity: 0.9
+            });
+            layer.openPopup();
+          },
+          mouseout: (e) => {
+            dataLayer.current?.resetStyle(e.target);
+            e.target.closePopup();
+          }
+        });
       }
-    });
+    }).addTo(map.current);
 
-    setShowTokenInput(false);
+    // Notify parent component that data is loaded
+    if (onDataLoad) {
+      onDataLoad(climateData);
+    }
   };
 
   const generateMockClimateData = () => {
-    const features = [];
-    // Generate mock data for different regions
     const regions = [
       { name: 'California Coast', center: [-119.4179, 36.7783], vulnerability: 0.8 },
       { name: 'Florida Keys', center: [-81.0912, 24.7074], vulnerability: 0.9 },
@@ -126,11 +88,10 @@ const ClimateMap = ({ onDataLoad }: { onDataLoad?: (data: any) => void }) => {
       { name: 'Colorado Rockies', center: [-105.7821, 39.5501], vulnerability: 0.4 },
     ];
 
-    regions.forEach((region, index) => {
-      // Create a rough polygon around each region center
+    const features = regions.map((region, index) => {
       const size = 2; // degrees
-      features.push({
-        type: 'Feature',
+      return {
+        type: 'Feature' as const,
         properties: {
           name: region.name,
           vulnerability: region.vulnerability,
@@ -138,7 +99,7 @@ const ClimateMap = ({ onDataLoad }: { onDataLoad?: (data: any) => void }) => {
           id: index
         },
         geometry: {
-          type: 'Polygon',
+          type: 'Polygon' as const,
           coordinates: [[
             [region.center[0] - size, region.center[1] - size],
             [region.center[0] + size, region.center[1] - size],
@@ -147,51 +108,30 @@ const ClimateMap = ({ onDataLoad }: { onDataLoad?: (data: any) => void }) => {
             [region.center[0] - size, region.center[1] - size]
           ]]
         }
-      });
+      };
     });
 
-    return features;
+    return {
+      type: 'FeatureCollection' as const,
+      features
+    };
   };
 
   useEffect(() => {
+    initializeMap();
+
     return () => {
-      map.current?.remove();
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
     };
   }, []);
-
-  if (showTokenInput) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-8">
-        <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
-          <h3 className="text-lg font-semibold mb-4">Setup Required</h3>
-          <p className="text-gray-600 mb-4">
-            To display the map, please enter your Mapbox public token. 
-            You can get one from <a href="https://mapbox.com/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">mapbox.com</a>
-          </p>
-          <div className="space-y-4">
-            <Input
-              type="text"
-              placeholder="Enter your Mapbox public token..."
-              value={mapboxToken}
-              onChange={(e) => setMapboxToken(e.target.value)}
-            />
-            <Button 
-              onClick={initializeMap}
-              disabled={!mapboxToken}
-              className="w-full"
-            >
-              Initialize Map
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="absolute inset-0" />
-      <div className="absolute top-4 left-4 bg-white p-3 rounded-lg shadow-lg">
+      <div className="absolute top-4 left-4 bg-white p-3 rounded-lg shadow-lg z-[1000]">
         <h3 className="font-semibold text-sm mb-1">Climate Vulnerability Index</h3>
         <div className="flex items-center space-x-2 text-xs">
           <div className="w-3 h-3 bg-green-500 rounded"></div>
