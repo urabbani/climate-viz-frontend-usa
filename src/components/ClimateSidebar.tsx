@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,6 +42,19 @@ const ClimateSidebar = ({ onBoundaryChange, onFilterChange }: ClimateSidebarProp
 
     loadOptions();
   }, []);
+
+  const getIndicatorDescription = (indicator: string) => {
+    const descriptions = {
+      exposure: "The degree of climate stress upon a particular system - includes temperature, precipitation, and extreme weather events.",
+      sensitivity: "The degree to which a system is affected by or responsive to climate stimuli - factors that make a system more or less sensitive to climate impacts.",
+      adaptive_capacity: "The ability of a system to adjust to climate change, moderate potential damages, take advantage of opportunities, or cope with consequences.",
+      climate_vulnerability: "Overall assessment combining exposure, sensitivity, and adaptive capacity to determine climate vulnerability.",
+      heat_stress: "Temperature-related climate stress and heat wave impacts on the region.",
+      drought_risk: "Water scarcity and drought vulnerability assessment.",
+      flood_risk: "Flooding and water excess vulnerability evaluation."
+    };
+    return descriptions[indicator] || "Climate indicator assessment for the selected region.";
+  };
 
   const handleBoundaryChange = (value: string) => {
     setSelectedBoundary(value);
@@ -126,11 +138,9 @@ const ClimateSidebar = ({ onBoundaryChange, onFilterChange }: ClimateSidebarProp
                   ))}
                 </SelectContent>
               </Select>
-              {indicators.find(i => i.id === selectedIndicator)?.description && (
-                <p className="text-xs text-gray-500 mt-1">
-                  {indicators.find(i => i.id === selectedIndicator)?.description}
-                </p>
-              )}
+              <p className="text-xs text-gray-500 mt-2">
+                {getIndicatorDescription(selectedIndicator)}
+              </p>
               {indicators.find(i => i.id === selectedIndicator)?.unit && (
                 <p className="text-xs text-blue-600 mt-1">
                   Unit: {indicators.find(i => i.id === selectedIndicator)?.unit}
@@ -139,6 +149,40 @@ const ClimateSidebar = ({ onBoundaryChange, onFilterChange }: ClimateSidebarProp
             </div>
           </CardContent>
         </Card>
+
+        {/* Climate Vulnerability Components Info */}
+        {(selectedIndicator === 'exposure' || selectedIndicator === 'sensitivity' || selectedIndicator === 'adaptive_capacity') && (
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Climate Vulnerability Framework</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xs text-gray-600 space-y-2">
+                <div className="flex items-start space-x-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                  <div>
+                    <p className="font-medium text-red-700">Exposure</p>
+                    <p>Climate stresses (temperature, precipitation, extreme events)</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                  <div>
+                    <p className="font-medium text-purple-700">Sensitivity</p>
+                    <p>System responsiveness to climate stimuli</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                  <div>
+                    <p className="font-medium text-green-700">Adaptive Capacity</p>
+                    <p>Ability to adjust and cope with climate change</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Active Filters Section */}
         <Card className="mb-6">

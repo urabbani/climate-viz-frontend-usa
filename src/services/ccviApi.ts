@@ -1,4 +1,3 @@
-
 const BASE_URL = 'https://pakwmis.iwmi.org/iwmi-ccvi/backend';
 
 export interface CCVIData {
@@ -59,12 +58,15 @@ class CCVIApiService {
       return await response.json();
     } catch (error) {
       console.error('Error fetching indicators:', error);
-      // Return fallback options if API fails
+      // Return fallback options with the three core climate vulnerability components
       return [
-        { id: 'climate_vulnerability', name: 'Climate Vulnerability Index' },
-        { id: 'heat_stress', name: 'Heat Stress' },
-        { id: 'drought_risk', name: 'Drought Risk' },
-        { id: 'flood_risk', name: 'Flood Risk' }
+        { id: 'climate_vulnerability', name: 'Climate Vulnerability Index', description: 'Overall climate vulnerability assessment' },
+        { id: 'exposure', name: 'Exposure', description: 'Degree of climate stress upon a system', unit: 'Index (0-1)' },
+        { id: 'sensitivity', name: 'Sensitivity', description: 'Degree to which a system is affected by climate stimuli', unit: 'Index (0-1)' },
+        { id: 'adaptive_capacity', name: 'Adaptive Capacity', description: 'Ability of a system to adjust to climate change', unit: 'Index (0-1)' },
+        { id: 'heat_stress', name: 'Heat Stress', description: 'Temperature-related climate stress' },
+        { id: 'drought_risk', name: 'Drought Risk', description: 'Water scarcity and drought vulnerability' },
+        { id: 'flood_risk', name: 'Flood Risk', description: 'Flooding and water excess vulnerability' }
       ];
     }
   }
@@ -111,10 +113,12 @@ class CCVIApiService {
   }
 
   private normalizeVulnerabilityScore(properties: any): number {
-    // Try different possible field names for vulnerability score
+    // Try different possible field names for vulnerability score including the three components
     const possibleFields = [
       'vulnerability_score', 'ccvi_score', 'vulnerability', 'score',
-      'VULNERABILITY_SCORE', 'CCVI_SCORE', 'VULNERABILITY', 'SCORE'
+      'exposure', 'sensitivity', 'adaptive_capacity',
+      'VULNERABILITY_SCORE', 'CCVI_SCORE', 'VULNERABILITY', 'SCORE',
+      'EXPOSURE', 'SENSITIVITY', 'ADAPTIVE_CAPACITY'
     ];
     
     for (const field of possibleFields) {
@@ -132,14 +136,14 @@ class CCVIApiService {
   }
 
   private getMockData(): CCVIData {
-    // Fallback mock data focused on Pakistan regions
+    // Fallback mock data focused on Pakistan regions with the three components
     const pakistanRegions = [
-      { name: 'Punjab', center: [74.3587, 31.5204], vulnerability: 0.7 },
-      { name: 'Sindh', center: [68.8242, 25.8943], vulnerability: 0.8 },
-      { name: 'Khyber Pakhtunkhwa', center: [71.4696, 34.0151], vulnerability: 0.6 },
-      { name: 'Balochistan', center: [66.9756, 28.3949], vulnerability: 0.9 },
-      { name: 'Gilgit-Baltistan', center: [74.4641, 35.9042], vulnerability: 0.4 },
-      { name: 'Azad Kashmir', center: [73.4548, 33.6844], vulnerability: 0.5 }
+      { name: 'Punjab', center: [74.3587, 31.5204], vulnerability: 0.7, exposure: 0.8, sensitivity: 0.6, adaptive_capacity: 0.4 },
+      { name: 'Sindh', center: [68.8242, 25.8943], vulnerability: 0.8, exposure: 0.9, sensitivity: 0.7, adaptive_capacity: 0.3 },
+      { name: 'Khyber Pakhtunkhwa', center: [71.4696, 34.0151], vulnerability: 0.6, exposure: 0.7, sensitivity: 0.5, adaptive_capacity: 0.5 },
+      { name: 'Balochistan', center: [66.9756, 28.3949], vulnerability: 0.9, exposure: 0.95, sensitivity: 0.8, adaptive_capacity: 0.2 },
+      { name: 'Gilgit-Baltistan', center: [74.4641, 35.9042], vulnerability: 0.4, exposure: 0.5, sensitivity: 0.4, adaptive_capacity: 0.7 },
+      { name: 'Azad Kashmir', center: [73.4548, 33.6844], vulnerability: 0.5, exposure: 0.6, sensitivity: 0.4, adaptive_capacity: 0.6 }
     ];
 
     const features = pakistanRegions.map((region, index) => {
@@ -150,6 +154,9 @@ class CCVIApiService {
           id: `region_${index}`,
           name: region.name,
           vulnerability_score: region.vulnerability,
+          exposure: region.exposure,
+          sensitivity: region.sensitivity,
+          adaptive_capacity: region.adaptive_capacity,
           population: Math.floor(Math.random() * 10000000) + 1000000,
           area: Math.floor(Math.random() * 100000) + 10000
         },
